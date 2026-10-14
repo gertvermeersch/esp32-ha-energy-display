@@ -8,13 +8,17 @@ screen.
 
 What it shows
 -------------
-* Top:    net grid power as a big number, with a label and colour:
+* Top:    net grid power on one line: label, number and unit, coloured by level:
             SURPLUS    (green)  - you are exporting to the grid
             BALANCED   (grey)   - within +/-50 W of zero
-            CONSUMING  (amber)  - importing from the grid
+            IMPORTING  (amber)  - importing from the grid
             HEAVY USE  (red)    - importing more than 2500 W
           A dot in the corner is green while HA is reachable, red otherwise.
           "NO DATA" appears when the last good reading is older than 30 s.
+          If daily energy sensors are configured (DAILY_SOLAR_ENTITY /
+          DAILY_EXPORT_ENTITY / DAILY_IMPORT_ENTITY), a row of today's totals
+          in kWh sits below it, side by side: SOLAR (yellow), EXPORTED (green)
+          and IMPORTED (amber).
 * Middle: weather icon, outdoor temperature and the current time.
 * Bottom: graph of the last 4 hours of net power (one pixel column per bin),
           with the peak/minimum values and dotted lines on every full hour.
@@ -85,6 +89,11 @@ Getting started
                             here. The display shows import minus export.
        GRID_POWER_INVERT    set to true if your net sensor is positive while
                             exporting.
+       DAILY_SOLAR_ENTITY   optional "today" sensors (kWh or Wh) that reset
+       DAILY_EXPORT_ENTITY  at midnight: solar produced, exported and
+       DAILY_IMPORT_ENTITY  consumed. Create them in HA with a utility_meter
+                            (daily cycle) on your total energy sensors.
+                            Leave all "" to hide the totals.
        WEATHER_ENTITY       a HA weather entity, e.g. "weather.home"
        OUTDOOR_TEMP_ENTITY  optional separate outdoor temperature sensor;
                             leave "" to use the weather entity's temperature.

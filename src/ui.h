@@ -7,7 +7,12 @@ struct Dashboard {
   bool online = false;       // the last Home Assistant poll succeeded
   float netW = NAN;          // + importing from the grid, - exporting
 
-  String condition;          // HA weather state, e.g. "partlycloudy"
+  bool showDaily = false;    // draw the daily totals next to the live meter
+  float dailySolarKwh = NAN;
+  float dailyExportKwh = NAN;
+  float dailyImportKwh = NAN;
+
+  String condition;         // HA weather state, e.g. "partlycloudy"
   float outdoorC = NAN;
 
   time_t now = 0;            // 0 until NTP has synced

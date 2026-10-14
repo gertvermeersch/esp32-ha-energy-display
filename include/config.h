@@ -23,6 +23,19 @@
 // Set to true if your net sensor is positive while exporting.
 #define GRID_POWER_INVERT   false
 
+// Optional daily energy totals, shown right of the live meter (kWh, Wh also
+// works). They must reset at midnight, e.g. a HA utility_meter with a daily
+// cycle. Leave all "" to hide the column; any of them may be left empty.
+#ifndef DAILY_SOLAR_ENTITY
+#define DAILY_SOLAR_ENTITY ""
+#endif
+#ifndef DAILY_IMPORT_ENTITY
+#define DAILY_IMPORT_ENTITY ""
+#endif
+#ifndef DAILY_EXPORT_ENTITY
+#define DAILY_EXPORT_ENTITY ""
+#endif
+
 #ifndef WEATHER_ENTITY
 #define WEATHER_ENTITY      "weather.home"
 #endif
@@ -43,6 +56,7 @@
 #define HISTORY_HOURS    4
 #define POWER_POLL_MS    5000
 #define WEATHER_POLL_MS  60000
+#define DAILY_POLL_MS    30000
 #define STALE_AFTER_MS   30000   // show "NO DATA" when power is older than this
 
 #define TIMEZONE   "CET-1CEST,M3.5.0,M10.5.0/3"   // Europe/Brussels

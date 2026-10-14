@@ -25,9 +25,13 @@ static PowerHistory history;
 static float historyBuf[HISTORY_BINS];
 static Dashboard dash;
 
+static constexpr bool HAS_DAILY_SOLAR = sizeof(DAILY_SOLAR_ENTITY) > 1;
+static constexpr bool HAS_DAILY_IMPORT = sizeof(DAILY_IMPORT_ENTITY) > 1;
+static constexpr bool HAS_DAILY_EXPORT = sizeof(DAILY_EXPORT_ENTITY) > 1;
+
 static bool historyLoaded = false;
 static float mainScale = 1, exportScale = 1;  // W per sensor unit (1000 for kW)
-static uint32_t lastPowerPoll, lastWeatherPoll, lastPowerOk;
+static uint32_t lastPowerPoll, lastWeatherPoll, lastDailyPoll, lastPowerOk;
 static int lastMinute = -1;
 
 static bool timeValid() { return time(nullptr) > 1700000000; }
@@ -63,6 +67,23 @@ static void pollPower() {
     history.addSample(0, now, mainW, POWER_POLL_MS / 1000.0f);
     if (HAS_EXPORT_SENSOR) history.addSample(1, now, exportW, POWER_POLL_MS / 1000.0f);
   }
+}
+
+static bool readEnergyKwh(const char *entity, float &kwh) {
+  EntityState st;
+  float v;
+  if (!haGetState(entity, st) || !parseNumber(st.state.c_str(), v)) return false;
+  if (st.unit.equalsIgnoreCase("Wh")) v /= 1000;
+  else if (st.unit.equalsIgnoreCase("MWh")) v *= 1000;
+  kwh = v;
+  return true;
+}
+
+// Keeps the last good values on failure; the totals change slowly
+static void pollDaily() {
+  if (HAS_DAILY_SOLAR) readEnergyKwh(DAILY_SOLAR_ENTITY, dash.dailySolarKwh);
+  if (HAS_DAILY_IMPORT) readEnergyKwh(DAILY_IMPORT_ENTITY, dash.dailyImportKwh);
+  if (HAS_DAILY_EXPORT) readEnergyKwh(DAILY_EXPORT_ENTITY, dash.dailyExportKwh);
 }
 
 static void pollWeather() {
@@ -132,10 +153,12 @@ void setup() {
   history.configure(HISTORY_HOURS * 3600 / HISTORY_BINS);
   dash.history = historyBuf;
   dash.binSeconds = history.binSeconds();
+  dash.showDaily = HAS_DAILY_SOLAR || HAS_DAILY_IMPORT || HAS_DAILY_EXPORT;
 
   // Poll everything on the first pass through loop()
   lastPowerPoll = millis() - POWER_POLL_MS;
   lastWeatherPoll = millis() - WEATHER_POLL_MS;
+  lastDailyPoll = millis() - DAILY_POLL_MS;
 }
 
 void loop() {
@@ -150,6 +173,11 @@ void loop() {
     if (millis() - lastWeatherPoll >= WEATHER_POLL_MS) {
       lastWeatherPoll = millis();
       pollWeather();
+      dirty = true;
+    }
+    if (dash.showDaily && millis() - lastDailyPoll >= DAILY_POLL_MS) {
+      lastDailyPoll = millis();
+      pollDaily();
       dirty = true;
     }
   } else if (dash.online) {

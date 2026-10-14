@@ -21,9 +21,9 @@ static Adafruit_ST7789 tft(-1, TFT_DC, TFT_RST);  // module has no CS pin
 static GFXcanvas16 *canvas;
 
 static constexpr int W = 240;
-static constexpr int POWER_Y = 0, POWER_H = 90;
-static constexpr int WEATHER_Y = 90, WEATHER_H = 50;
-static constexpr int GRAPH_Y = 140, GRAPH_H = 100;
+static constexpr int POWER_Y = 0, POWER_H = 96;
+static constexpr int WEATHER_Y = 96, WEATHER_H = 50;
+static constexpr int GRAPH_Y = 146, GRAPH_H = 94;
 
 static constexpr uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -72,9 +72,11 @@ static Bounds bounds(Adafruit_GFX &g, const char *s) {
   return b;
 }
 
-static void printCentered(Adafruit_GFX &g, const char *s, int baseline) {
+// Centres s horizontally within [x0, x0 + width); width 0 means the whole display.
+static void printCentered(Adafruit_GFX &g, const char *s, int baseline, int x0 = 0, int width = 0) {
   Bounds b = bounds(g, s);
-  g.setCursor((g.width() - b.w) / 2 - b.x1, baseline);
+  if (!width) width = g.width();
+  g.setCursor(x0 + (width - b.w) / 2 - b.x1, baseline);
   g.print(s);
 }
 
@@ -182,6 +184,23 @@ static void drawWeatherIcon(int bx, int by, const String &cond) {
 
 // ---- Sections -----------------------------------------------------------------
 
+// One daily total: coloured value over a small caption, centred in its column
+static void drawDailyTotal(int x, int w, const char *caption, uint16_t color, float kwh) {
+  char val[10];
+  if (isnan(kwh)) strcpy(val, "--");
+  else snprintf(val, sizeof val, kwh < 100 ? "%.1f" : "%.0f", kwh);
+
+  canvas->setFont(&FreeSansBold18pt7b);
+  canvas->setTextColor(isnan(kwh) ? C_GREY : color);
+  printCentered(*canvas, val, 77, x, w);
+
+  canvas->setFont();  // built-in 6x8 font
+  canvas->setTextSize(1);
+  canvas->setTextColor(color);
+  canvas->setCursor(x + (w - 6 * (int)strlen(caption)) / 2, 84);
+  canvas->print(caption);
+}
+
 static void drawPower(const Dashboard &d) {
   canvas->fillScreen(BG);
 
@@ -195,7 +214,7 @@ static void drawPower(const Dashboard &d) {
     strcpy(num, "--");
     unit = "";
   } else {
-    static const char *labels[] = {"SURPLUS", "BALANCED", "CONSUMING", "HEAVY USE"};
+    static const char *labels[] = {"SURPLUS", "BALANCED", "IMPORTING", "HEAVY USE"};
     Level l = levelFor(d.netW);
     label = labels[l];
     color = levelColor(l);
@@ -209,26 +228,40 @@ static void drawPower(const Dashboard &d) {
     }
   }
 
-  canvas->setTextColor(color);
-  canvas->setFont(&FreeSansBold9pt7b);
-  printCentered(*canvas, label, 20);
-
-  // Number and unit centred together as one group
-  canvas->setFont(&FreeSansBold24pt7b);
+  // Label, number and unit on one line, centred together as one group.
+  // "IMPORTING 1.23 kW" is the widest case and fills nearly the whole width.
+  canvas->setFont(&FreeSans9pt7b);
+  Bounds bl = bounds(*canvas, label);
+  canvas->setFont(&FreeSansBold18pt7b);
   Bounds bn = bounds(*canvas, num);
   canvas->setFont(&FreeSansBold12pt7b);
   Bounds bu = bounds(*canvas, unit);
-  int gap = *unit ? 6 : 0;
-  int x = (W - (bn.w + gap + bu.w)) / 2;
+  const int labelGap = 8, unitGap = *unit ? 4 : 0;
+  int x = (W - (bl.w + labelGap + bn.w + unitGap + bu.w)) / 2;
+  const int base = d.showDaily ? 35 : POWER_H / 2 + 12;
 
-  canvas->setFont(&FreeSansBold24pt7b);
-  canvas->setCursor(x - bn.x1, 72);
+  canvas->setTextColor(color);
+  canvas->setFont(&FreeSans9pt7b);
+  canvas->setCursor(x - bl.x1, base);
+  canvas->print(label);
+  x += bl.w + labelGap;
+  canvas->setFont(&FreeSansBold18pt7b);
+  canvas->setCursor(x - bn.x1, base);
   canvas->print(num);
+  x += bn.w + unitGap;
   canvas->setFont(&FreeSansBold12pt7b);
-  canvas->setCursor(x + bn.w + gap - bu.x1, 72);
+  canvas->setCursor(x - bu.x1, base);
   canvas->print(unit);
 
-  canvas->fillCircle(W - 8, 8, 3, d.online ? C_GREEN : C_RED);
+  if (d.showDaily) {
+    canvas->drawFastHLine(8, 47, W - 16, C_DARK);
+    const int colW = W / 3;
+    drawDailyTotal(0, colW, "SOLAR kWh", C_SUN, d.dailySolarKwh);
+    drawDailyTotal(colW, colW, "EXPORTED kWh", C_GREEN, d.dailyExportKwh);
+    drawDailyTotal(2 * colW, colW, "IMPORTED kWh", C_AMBER, d.dailyImportKwh);
+  }
+
+  canvas->fillCircle(W - 6, 6, 3, d.online ? C_GREEN : C_RED);
   push(POWER_Y, POWER_H);
 }
 
